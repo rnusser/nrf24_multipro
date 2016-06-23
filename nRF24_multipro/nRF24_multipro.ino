@@ -32,6 +32,13 @@
 #include <EEPROM.h>
 #include "iface_nrf24l01.h"
 
+// uncomment the below define to use nRF24_multipro as a receiver
+// instead of a transmitter. you must also explicity set the 
+// 'current_protocol' variable below the the protocol you wish 
+// the receiver to use.
+// Currently only the following RX protocols have been implemented:
+// PROTO_BAYANG
+//#define RX_MODE
 
 // ############ Wiring ################
 #define PPM_pin   2  // PPM in
@@ -113,7 +120,7 @@ enum{
 };
 
 uint8_t transmitterID[4];
-uint8_t current_protocol;
+uint8_t current_protocol = PROTO_BAYANG;
 static volatile bool ppm_ok = false;
 uint8_t packet[32];
 static bool reset=true;
@@ -133,12 +140,14 @@ void setup()
     pinMode(CE_pin, OUTPUT);
     pinMode(MISO_pin, INPUT);
 
+#ifndef RX_MODE
     // PPM ISR setup
     attachInterrupt(PPM_pin - 2, ISR_ppm, CHANGE);
     TCCR1A = 0;  //reset timer1
     TCCR1B = 0;
     TCCR1B |= (1 << CS11);  //set timer1 to increment every 1 us @ 8MHz, 0.5 us @16MHz
 
+#endif
     set_txid(false);
 }
 
@@ -146,9 +155,15 @@ void loop()
 {
     uint32_t timeout=0;
     // reset / rebind
+#ifndef RX_MODE
     if(reset || ppm[AUX8] > PPM_MAX_COMMAND) {
+#else
+    if(reset) {
+#endif
         reset = false;
+#ifndef RX_MODE
         selectProtocol();
+#endif
         NRF24L01_Reset();
         NRF24L01_Initialize();
         init_protocol();
@@ -192,8 +207,10 @@ void loop()
             timeout = process_YD717();
             break;
     }
+#ifndef RX_MODE
     // updates ppm values out of ISR
     update_ppm();
+#endif
     // wait before sending next packet
     while(micros() < timeout)
     {   };
