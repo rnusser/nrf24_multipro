@@ -40,10 +40,11 @@ enum{
 
 uint32_t process_Bayang()
 {
-    uint32_t timeout = micros() + BAYANG_PACKET_PERIOD;
 #ifndef RX_MODE
+    uint32_t timeout = micros() + BAYANG_PACKET_PERIOD;
     Bayang_send_packet(0);
 #else
+    uint32_t timeout = micros() + BAYANG_PACKET_PERIOD/10;
     Bayang_recv_packet();
 #endif
     return timeout;
@@ -161,6 +162,8 @@ void Bayang_bind_rx()
     XN297_SetRXAddr(Bayang_rx_tx_addr, BAYANG_ADDRESS_LENGTH);
 
     NRF24L01_WriteReg(NRF24L01_05_RF_CH, Bayang_rf_channels[Bayang_rf_chan++]);
+    NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
+    NRF24L01_FlushRx();
 
     digitalWrite(ledPin, HIGH);
 }
