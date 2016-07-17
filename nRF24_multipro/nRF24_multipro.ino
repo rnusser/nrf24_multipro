@@ -40,6 +40,16 @@
 // PROTO_BAYANG
 //#define RX_MODE
 
+// uncomment the below define to enable a nrf 'pseudo promiscuous' mode
+// this has a serial interface for configuring, sending, and receiving
+// packets. useful for reverse engineering protocols.
+// (helped reverse engineer the fq777-124 pocket drone protocol which
+// uses an ssv7241 transceiver (nrf clone)
+
+#ifdef ENABLE_PROMISC
+#define RX_MODE
+#endif
+
 // ############ Wiring ################
 #define PPM_pin   2  // PPM in
 //SPI Comm.pins with nRF24L01
@@ -107,6 +117,7 @@ enum {
     PROTO_HISKY,        // HiSky RXs, HFP80, HCP80/100, FBL70/80/90/100, FF120, HMX120, WLToys v933/944/955 ...
     PROTO_KN,           // KN (WLToys variant) V930/931/939/966/977/988
     PROTO_YD717,        // Cheerson CX-10 red (older version)/CX11/CX205/CX30, JXD389/390/391/393, SH6057/6043/6044/6046/6047, FY326Q7, WLToys v252 Pro/v343, XinXun X28/X30/X33/X39/X40
+    PROTO_PROMISC,      // to sniff packets and help reverse engineer protocols
     PROTO_END
 };
 
@@ -120,7 +131,11 @@ enum{
 };
 
 uint8_t transmitterID[4];
+#ifdef ENABLE_PROMISC
+uint8_t current_protocol = PROTO_PROMISC;
+#else
 uint8_t current_protocol = PROTO_BAYANG;
+#endif
 static volatile bool ppm_ok = false;
 uint8_t packet[32];
 static bool reset=true;
@@ -148,6 +163,10 @@ void setup()
     TCCR1B |= (1 << CS11);  //set timer1 to increment every 1 us @ 8MHz, 0.5 us @16MHz
 
 #endif
+#ifdef ENABLE_PROMISC
+    Serial.begin(57600);
+    Serial.println("starting radio");
+#endif //ENABLE_PROMISC
     set_txid(false);
 }
 
@@ -186,6 +205,11 @@ void loop()
             break;
         case PROTO_BAYANG:
             timeout = process_Bayang();
+            break;
+        case PROTO_PROMISC:
+        #ifdef ENABLE_PROMISC
+            timeout = process_Promisc();
+        #endif
             break;
         case PROTO_SYMAX5C1:
         case PROTO_SYMAXOLD:
@@ -341,6 +365,12 @@ void init_protocol()
         case PROTO_BAYANG:
             Bayang_init();
             Bayang_bind();
+            break;
+        case PROTO_PROMISC:
+        #ifdef ENABLE_PROMISC
+            Promisc_init();
+            Promisc_bind();
+        #endif
             break;
         case PROTO_SYMAX5C1:
         case PROTO_SYMAXOLD:
