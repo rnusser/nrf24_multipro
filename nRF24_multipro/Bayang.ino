@@ -176,10 +176,7 @@ void Bayang_recv_packet()
     int sum = 0;
     uint16_t roll, pitch, yaw, throttle;
     XN297_ReadPayload(packet, BAYANG_PACKET_SIZE);
-    
-    NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
-    NRF24L01_FlushRx();
-    
+
     if( packet[0] == 0xA4)
     {
       // bind packet
@@ -203,10 +200,11 @@ void Bayang_recv_packet()
       {
         //checksum FAIL
       }
-
-      NRF24L01_WriteReg(NRF24L01_05_RF_CH, Bayang_rf_channels[Bayang_rf_chan++]);
-      Bayang_rf_chan %= sizeof(Bayang_rf_channels);
     }
+    NRF24L01_WriteReg(NRF24L01_05_RF_CH, Bayang_rf_channels[Bayang_rf_chan++]);
+    Bayang_rf_chan %= sizeof(Bayang_rf_channels);
+    NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
+    NRF24L01_FlushRx();
   }
 }
 
