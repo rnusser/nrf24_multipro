@@ -72,6 +72,9 @@
 #define RF_POWER TX_POWER_80mW 
 //#define RF_POWER TX_POWER_158mW
 
+// tune ppm input for "special" transmitters
+// #define SPEKTRUM // TAER, 1100-1900, AIL & RUD reversed
+
 // PPM stream settings
 #define CHANNELS 12 // number of channels in ppm stream, 12 ideally
 enum chan_order{
@@ -114,6 +117,8 @@ enum {
     PROTO_HISKY,        // HiSky RXs, HFP80, HCP80/100, FBL70/80/90/100, FF120, HMX120, WLToys v933/944/955 ...
     PROTO_KN,           // KN (WLToys variant) V930/931/939/966/977/988
     PROTO_YD717,        // Cheerson CX-10 red (older version)/CX11/CX205/CX30, JXD389/390/391/393, SH6057/6043/6044/6046/6047, FY326Q7, WLToys v252 Pro/v343, XinXun X28/X30/X33/X39/X40
+    PROTO_FQ777124,     // FQ777-124 pocket drone
+    PROTO_E010,         // EAchine E010, NiHui NH-010, JJRC H36 mini
     PROTO_END
 };
 
@@ -225,6 +230,7 @@ void loop()
             next_process_time = process_H8_3D();
           break;
       case PROTO_MJX:
+      case PROTO_E010:
             next_process_time = process_MJX();
           break;
       case PROTO_HISKY:
@@ -235,6 +241,9 @@ void loop()
           break;
       case PROTO_YD717:
             next_process_time = process_YD717();
+          break;
+      case PROTO_FQ777124:
+            next_process_time = process_FQ777124();
           break;
     }
   }
@@ -277,6 +286,14 @@ void selectProtocol()
     
     // protocol selection
     
+    // Rudder right + Aileron right + Elevator down
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND && ppm[ELEVATOR] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_E010; // EAchine E010, NiHui NH-010, JJRC H36 mini
+    
+    // Rudder right + Aileron right + Elevator up
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND && ppm[ELEVATOR] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_FQ777124; // FQ-777-124
+
     // Rudder right + Aileron left + Elevator up
     else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND && ppm[ELEVATOR] > PPM_MAX_COMMAND)
         current_protocol = PROTO_YD717; // Cheerson CX-10 red (older version)/CX11/CX205/CX30, JXD389/390/391/393, SH6057/6043/6044/6046/6047, FY326Q7, WLToys v252 Pro/v343, XinXun X28/X30/X33/X39/X40
@@ -379,6 +396,7 @@ void init_protocol()
             H8_3D_bind();
             break;
         case PROTO_MJX:
+        case PROTO_E010:
             MJX_init();
             MJX_bind();
             break;
@@ -390,6 +408,10 @@ void init_protocol()
             break;
         case PROTO_YD717:
             YD717_init();
+            break;
+        case PROTO_FQ777124:
+            FQ777124_init();
+            FQ777124_bind();
             break;
     }
 }
@@ -405,6 +427,14 @@ void update_ppm()
         }
     }
   }
+#ifdef SPEKTRUM
+    for(uint8_t ch=0; ch<CHANNELS; ch++) {
+        if(ch == AILERON || ch == RUDDER) {
+            ppm[ch] = 3000-ppm[ch];
+        }
+        ppm[ch] = constrain(map(ppm[ch],1100,1900,PPM_MIN,PPM_MAX),PPM_MIN,PPM_MAX);
+    }
+#endif
 }
 
 void ISR_ppm()
