@@ -32,6 +32,17 @@
 #include <EEPROM.h>
 #include "iface_nrf24l01.h"
 
+// uncomment to enable debug output on the serial line
+#define DEBUG
+
+#define TELEMETRY_ENABLED
+#ifdef TELEMETRY_ENABLED
+#define FRSKY_TELEMETRY
+#endif
+#define TIMER2_COUNTER
+//#define TIMER0_COUNTER
+
+
 
 // ############ Wiring ################
 #define PPM_pin   2  // PPM in
@@ -57,6 +68,7 @@
 #define  MISO_on (PINC & _BV(0)) // PC0
 
 #define RF_POWER TX_POWER_80mW 
+//#define RF_POWER TX_POWER_158mW
 
 // PPM stream settings
 #define CHANNELS 12 // number of channels in ppm stream, 12 ideally
@@ -113,7 +125,7 @@ enum{
 };
 
 uint8_t transmitterID[4];
-uint8_t current_protocol;
+uint8_t current_protocol = PROTO_BAYANG;
 static volatile bool ppm_ok = false;
 uint8_t packet[32];
 static bool reset=true;
@@ -135,68 +147,90 @@ void setup()
 
     // PPM ISR setup
     attachInterrupt(PPM_pin - 2, ISR_ppm, CHANGE);
+
+#ifdef TIMER2_COUNTER
+    setup_T2();
+#elif defined(TIMER0_COUNTER)
+#else
     TCCR1A = 0;  //reset timer1
     TCCR1B = 0;
     TCCR1B |= (1 << CS11);  //set timer1 to increment every 1 us @ 8MHz, 0.5 us @16MHz
+#endif
+
+#ifdef DEBUG
+    Serial.begin(57600);
+#endif
 
     set_txid(false);
+#ifdef FRSKY_TELEMETRY
+    frskyInit();
+#endif
 }
 
 void loop()
 {
-    uint32_t timeout=0;
+
+    static uint32_t next_process_time = 0;
+
+
     // reset / rebind
     if(reset || ppm[AUX8] > PPM_MAX_COMMAND) {
         reset = false;
-        selectProtocol();
+        //selectProtocol();
         NRF24L01_Reset();
         NRF24L01_Initialize();
         init_protocol();
     }
+
+    if (micros() > next_process_time)
+    {
     // process protocol
     switch(current_protocol) {
         case PROTO_CG023:
         case PROTO_YD829:
-            timeout = process_CG023();
+              next_process_time = process_CG023();
             break;
         case PROTO_V2X2:
-            timeout = process_V2x2();
+              next_process_time = process_V2x2();
             break;
         case PROTO_CX10_GREEN:
         case PROTO_CX10_BLUE:
-            timeout = process_CX10();
+              next_process_time = process_CX10();
             break;
         case PROTO_H7:
-            timeout = process_H7();
+              next_process_time = process_H7();
             break;
         case PROTO_BAYANG:
-            timeout = process_Bayang();
+              next_process_time = process_Bayang();
             break;
         case PROTO_SYMAX5C1:
         case PROTO_SYMAXOLD:
-            timeout = process_SymaX();
+              next_process_time = process_SymaX();
             break;
         case PROTO_H8_3D:
-            timeout = process_H8_3D();
+              next_process_time = process_H8_3D();
             break;
         case PROTO_MJX:
-            timeout = process_MJX();
+              next_process_time = process_MJX();
             break;
         case PROTO_HISKY:
-            timeout = process_HiSky();
+              next_process_time = process_HiSky();
             break;
         case PROTO_KN:
-            timeout = process_KN();
+              next_process_time = process_KN();
             break;
         case PROTO_YD717:
-            timeout = process_YD717();
+              next_process_time = process_YD717();
             break;
     }
     // updates ppm values out of ISR
     update_ppm();
-    // wait before sending next packet
-    while(micros() < timeout)
-    {   };
+
+    }
+
+#ifdef FRSKY_TELEMETRY
+    frskyUpdate();
+#endif
 }
 
 void set_txid(bool renew)
@@ -371,8 +405,21 @@ void ISR_ppm()
     static unsigned int pulse;
     static unsigned long counterPPM;
     static byte chan;
+    unsigned long count;
+    static unsigned long countLast = 0;
+#ifdef TIMER2_COUNTER
+    count = get_T2_count();
+    counterPPM = count - countLast;
+    countLast = count;
+#elif defined(TIMER0_COUNTER)
+    count = micros();
+    counterPPM = (count - countLast) * 2;
+    countLast = count;
+#else
     counterPPM = TCNT1;
     TCNT1 = 0;
+#endif
+
     ppm_ok=false;
     if(counterPPM < 510 << PPM_SCALE) {  //must be a pulse if less than 510us
         pulse = counterPPM;

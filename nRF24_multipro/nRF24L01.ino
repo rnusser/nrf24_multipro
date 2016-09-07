@@ -60,13 +60,13 @@ uint8_t Strobe(uint8_t state)
 
 uint8_t NRF24L01_WritePayload(uint8_t *data, uint8_t length)
 {
-    CE_off;
+    //CE_off;
     CS_off;
     spi_write(W_TX_PAYLOAD); 
     for(uint8_t i=0; i<length; i++)
         spi_write(data[i]);
     CS_on;
-    CE_on; // transmit
+    //CE_on; // transmit
     return 1;
 }
 
@@ -109,7 +109,7 @@ void NRF24L01_SetTxRxMode(enum TXRX_State mode)
         NRF24L01_WriteReg(NRF24L01_00_CONFIG, (1 << NRF24L01_00_EN_CRC)   // switch to TX mode
                                             | (1 << NRF24L01_00_CRCO)
                                             | (1 << NRF24L01_00_PWR_UP));
-        delayMicroseconds(130);
+        //delayMicroseconds(130);
         CE_on;
     } else if (mode == RX_EN) {
         CE_off;
@@ -122,7 +122,7 @@ void NRF24L01_SetTxRxMode(enum TXRX_State mode)
                                             | (1 << NRF24L01_00_CRCO)
                                             | (1 << NRF24L01_00_PWR_UP)
                                             | (1 << NRF24L01_00_PRIM_RX));
-        delayMicroseconds(130);
+        //delayMicroseconds(130);
         CE_on;
     } else {
         NRF24L01_WriteReg(NRF24L01_00_CONFIG, (1 << NRF24L01_00_EN_CRC)); //PowerDown
