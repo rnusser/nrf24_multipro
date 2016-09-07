@@ -67,6 +67,8 @@
 // SPI input
 #define  MISO_on (PINC & _BV(0)) // PC0
 
+//#define RF_POWER TX_POWER_5mW
+//#define RF_POWER TX_POWER_20mW
 #define RF_POWER TX_POWER_80mW 
 //#define RF_POWER TX_POWER_158mW
 
@@ -170,66 +172,75 @@ void setup()
 void loop()
 {
 
-    static uint32_t next_process_time = 0;
+  static uint32_t next_process_time = 0;
+  static uint32_t next_pmm_time     = 0;
+
+  // reset / rebind
+  if(reset || ppm[AUX8] > PPM_MAX_COMMAND) {
+      reset = false;
+      //selectProtocol();
+      NRF24L01_Reset();
+      NRF24L01_Initialize();
+      init_protocol();
+  }
 
 
-    // reset / rebind
-    if(reset || ppm[AUX8] > PPM_MAX_COMMAND) {
-        reset = false;
-        //selectProtocol();
-        NRF24L01_Reset();
-        NRF24L01_Initialize();
-        init_protocol();
-    }
+  uint32_t time_now = micros();
 
-    if (micros() > next_process_time)
-    {
-    // process protocol
-    switch(current_protocol) {
-        case PROTO_CG023:
-        case PROTO_YD829:
-              next_process_time = process_CG023();
-            break;
-        case PROTO_V2X2:
-              next_process_time = process_V2x2();
-            break;
-        case PROTO_CX10_GREEN:
-        case PROTO_CX10_BLUE:
-              next_process_time = process_CX10();
-            break;
-        case PROTO_H7:
-              next_process_time = process_H7();
-            break;
-        case PROTO_BAYANG:
-              next_process_time = process_Bayang();
-            break;
-        case PROTO_SYMAX5C1:
-        case PROTO_SYMAXOLD:
-              next_process_time = process_SymaX();
-            break;
-        case PROTO_H8_3D:
-              next_process_time = process_H8_3D();
-            break;
-        case PROTO_MJX:
-              next_process_time = process_MJX();
-            break;
-        case PROTO_HISKY:
-              next_process_time = process_HiSky();
-            break;
-        case PROTO_KN:
-              next_process_time = process_KN();
-            break;
-        case PROTO_YD717:
-              next_process_time = process_YD717();
-            break;
-    }
+  if (time_now > next_pmm_time)
+  {
+    next_pmm_time = time_now + 5000;
     // updates ppm values out of ISR
     update_ppm();
+  }
 
+
+  if (time_now > next_process_time)
+  {
+    // process protocol
+    switch(current_protocol)
+    {
+      case PROTO_CG023:
+      case PROTO_YD829:
+            next_process_time = process_CG023();
+          break;
+      case PROTO_V2X2:
+            next_process_time = process_V2x2();
+          break;
+      case PROTO_CX10_GREEN:
+      case PROTO_CX10_BLUE:
+            next_process_time = process_CX10();
+          break;
+      case PROTO_H7:
+            next_process_time = process_H7();
+          break;
+      case PROTO_BAYANG:
+            next_process_time = process_Bayang();
+          break;
+      case PROTO_SYMAX5C1:
+      case PROTO_SYMAXOLD:
+            next_process_time = process_SymaX();
+          break;
+      case PROTO_H8_3D:
+            next_process_time = process_H8_3D();
+          break;
+      case PROTO_MJX:
+            next_process_time = process_MJX();
+          break;
+      case PROTO_HISKY:
+            next_process_time = process_HiSky();
+          break;
+      case PROTO_KN:
+            next_process_time = process_KN();
+          break;
+      case PROTO_YD717:
+            next_process_time = process_YD717();
+          break;
     }
+  }
 
 #ifdef FRSKY_TELEMETRY
-    frskyUpdate();
+  frskyUpdate();
 #endif
 }
 
@@ -386,11 +397,14 @@ void init_protocol()
 // update ppm values out of ISR    
 void update_ppm()
 {
+  if (ppm_ok)
+  {
     for(uint8_t ch=0; ch<CHANNELS; ch++) {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             ppm[ch] = Servo_data[ch];
         }
-    }    
+    }
+  }
 }
 
 void ISR_ppm()

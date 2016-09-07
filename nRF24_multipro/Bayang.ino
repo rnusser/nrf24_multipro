@@ -27,11 +27,24 @@
 #ifndef FRSKY_TELEMETRY
 float   telemetry_voltage;
 uint8_t telemetry_rssi;
+uint8_t  telemetry_datamode;
+float    telemetry_data[3]; // pids
+uint8_t  telemetry_dataitem;
+uint16_t telemetry_uptime;
+uint16_t telemetry_flighttime;
+uint8_t  telemetry_flightmode;
 #endif
 
 #ifdef TELEMETRY_ENABLED
-extern float   telemetry_voltage;
-extern uint8_t telemetry_rssi;
+extern float    telemetry_voltage;
+extern uint8_t  telemetry_rssi;
+extern uint8_t  telemetry_datamode;
+extern float    telemetry_data[3]; // pids
+extern uint8_t  telemetry_dataitem;
+extern uint16_t telemetry_uptime;
+extern uint16_t telemetry_flighttime;
+extern uint8_t  telemetry_flightmode;
+
 uint8_t telemetry_rssi_count;
 uint8_t telemetry_rssi_next;
 #endif
@@ -183,37 +196,33 @@ uint8_t Bayang_recv_packet()
         } val;
         val v;
 
-        uint16_t uptime, flighttime;
-        float d1,d2,d3;
-        uint8_t flight_mode, data_mode, data_select;
-
         v.bytes[0] = packet[1];
         v.bytes[1] = packet[2];
         telemetry_voltage = v.v / 100.f;
 
         v.bytes[0] = packet[3];
         v.bytes[1] = packet[4];
-        uptime = v.v;
+        telemetry_uptime = v.v;
 
         v.bytes[0] = packet[5];
         v.bytes[1] = packet[6];
-        flighttime = v.v;
+        telemetry_flighttime = v.v;
 
-        flight_mode = packet[7] & 0x3; // 0 = level, 1 = acro,
-        data_mode   = (packet[7] >> 4) & 0xF;  // (0=acro yaw, 1=acro roll/acro pitch, 2=level roll/pitch)
-        data_select = (packet[7] >> 6) & 0x3;  // (0=acro yaw, 1=acro roll/acro pitch, 2=level roll/pitch)
+        telemetry_flightmode = packet[7] & 0x3; // 0 = level, 1 = acro,
+        telemetry_datamode   = (packet[7] >> 2) & 0xF;  // (0=acro yaw, 1=acro roll/acro pitch, 2=level roll/pitch)
+        telemetry_dataitem   = (packet[7] >> 6) & 0x3;  // (0=acro yaw, 1=acro roll/acro pitch, 2=level roll/pitch)
 
         v.bytes[0] = packet[8];
         v.bytes[1] = packet[9];
-        d1 = v.v/1000.f;
+        telemetry_data[0] = v.v/1000.f;
 
         v.bytes[0] = packet[10];
         v.bytes[1] = packet[11];
-        d2 = v.v/1000.f;
+        telemetry_data[1] = v.v/1000.f;
 
         v.bytes[0] = packet[12];
         v.bytes[1] = packet[13];
-        d3 = v.v/1000.f;
+        telemetry_data[2] = v.v/1000.f;
 
 #ifdef DEBUG
         if (time_now - last_micros > 1000000) // 1 second
@@ -235,19 +244,19 @@ uint8_t Bayang_recv_packet()
           Serial.print("us]: ");
           Serial.print(telemetry_voltage, 3);
           Serial.print("v, uptime");
-          Serial.print(uptime, DEC);
+          Serial.print(telemetry_uptime, DEC);
           Serial.print("s, ftime");
-          Serial.print(flighttime, DEC);
+          Serial.print(telemetry_flighttime, DEC);
           Serial.print("s, flight mode");
-          Serial.print(flight_mode, DEC);
+          Serial.print(telemetry_flightmode, DEC);
           Serial.print(", data mode:");
-          Serial.print(data_mode, DEC);
+          Serial.print(telemetry_datamode, DEC);
           Serial.print(", P:");
-          Serial.print(d1, 10);
+          Serial.print(telemetry_data[0], 10);
           Serial.print(", I:");
-          Serial.print(d2, 10);
+          Serial.print(telemetry_data[1], 10);
           Serial.print(", D:");
-          Serial.print(d3, 10);
+          Serial.print(telemetry_data[2], 10);
           Serial.println("");
 
           min_tx_time = 0xFFFFFFFF;
@@ -261,6 +270,7 @@ uint8_t Bayang_recv_packet()
     else
     {
 #ifdef DEBUG
+      /*
       Serial.print("Other packet");
       for (int i = 0; i < 14; i++)
       {
@@ -268,6 +278,7 @@ uint8_t Bayang_recv_packet()
         Serial.print(" ");
       }
       Serial.println();
+      */
 #endif //DEBUG
     }
     received = 1;
@@ -328,9 +339,14 @@ void Bayang_send_packet(u8 bind)
       }
 
       if (ppm[AUX5] <= partitions[i] + hysteresis)
+      {
         dataselect = i;
+        break;
+      }
       else
+      {
         dataselect = i+1;
+      }
     }
 
 
@@ -352,9 +368,14 @@ void Bayang_send_packet(u8 bind)
       }
 
       if (ppm[AUX6] <= partitions[i] + hysteresis)
+      {
         dataadjust = i;
+        break;
+      }
       else
+      {
         dataadjust = i+1;
+      }
     }
 
     // flight mode 1250 1500 1750 - aux 1
@@ -376,9 +397,14 @@ void Bayang_send_packet(u8 bind)
       }
 
       if (ppm[AUX1] <= partitions[i] + hysteresis)
+      {
         flightmode = i;
+        break;
+      }
       else
+      {
         flightmode = i+1;
+      }
     }
 
     packet[3] |= (flightmode & 0x3);
