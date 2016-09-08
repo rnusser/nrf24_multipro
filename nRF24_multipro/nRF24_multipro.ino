@@ -419,14 +419,12 @@ void init_protocol()
 // update ppm values out of ISR    
 void update_ppm()
 {
-  if (ppm_ok)
-  {
+
     for(uint8_t ch=0; ch<CHANNELS; ch++) {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             ppm[ch] = Servo_data[ch];
         }
     }
-  }
 #ifdef SPEKTRUM
     for(uint8_t ch=0; ch<CHANNELS; ch++) {
         if(ch == AILERON || ch == RUDDER) {

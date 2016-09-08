@@ -133,7 +133,7 @@ void smartportSendFrame()
   case 6: // xjt accy
     buf[2] = 0x25;
     buf[3] = 0x00;
-    temp16 = (uint16_t)(telemetry_data[0]*1000);
+    temp16 = (uint16_t)(telemetry_data[1]*1000);
     bytes = (uint8_t *) &temp16;
     buf[4] = bytes[0];
     buf[5] = bytes[1];
@@ -141,7 +141,7 @@ void smartportSendFrame()
   case 7: // xjt accz
     buf[2] = 0x26;
     buf[3] = 0x00;
-    temp16 = (uint16_t)(telemetry_data[0]*1000);
+    temp16 = (uint16_t)(telemetry_data[2]*1000);
     bytes = (uint8_t *) &temp16;
     buf[4] = bytes[0];
     buf[5] = bytes[1];
