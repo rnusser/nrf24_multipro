@@ -33,7 +33,7 @@
 #include "iface_nrf24l01.h"
 
 // uncomment to enable debug output on the serial line
-#define DEBUG
+// #define DEBUG
 
 #define TELEMETRY_ENABLED
 #ifdef TELEMETRY_ENABLED
