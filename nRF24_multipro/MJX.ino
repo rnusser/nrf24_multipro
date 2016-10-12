@@ -98,9 +98,10 @@ void mjx_send_packet(u8 bind)
     packet[1] = mjx_convert_channel(RUDDER);          // rudder
     packet[4] = 0x40;         // rudder does not work well with dyntrim
     packet[2] = mjx_convert_channel(ELEVATOR);   // elevator
-    packet[5] = CHAN2TRIM(packet[2]); // 0x40;      // trim elevator
+    // driven trims cause issues when headless is enabled
+    packet[5] = GET_FLAG(MJX_CHANNEL_HEADLESS, 1) ? 0x40 : CHAN2TRIM(packet[2]); // trim elevator
     packet[3] = mjx_convert_channel(AILERON);          // aileron
-    packet[6] = CHAN2TRIM(packet[3]); // 0x40;      // trim aileron
+    packet[6] = GET_FLAG(MJX_CHANNEL_HEADLESS, 1) ? 0x40 : CHAN2TRIM(packet[3]); // trim aileron
     packet[7] = mjx_txid[0];
     packet[8] = mjx_txid[1];
     packet[9] = mjx_txid[2];
@@ -129,10 +130,6 @@ void mjx_send_packet(u8 bind)
         break;
 
         case FORMAT_X600:
-            if (GET_FLAG(MJX_CHANNEL_HEADLESS, 1)) { // driven trims cause issues when headless is enabled
-                packet[5] = 0x40;
-                packet[6] = 0x40;
-            }
             packet[10] = GET_FLAG_INV(MJX_CHANNEL_LED, 0x02);
             packet[11] = GET_FLAG(MJX_CHANNEL_RTH, 0x01);
             if (!bind) {
@@ -186,8 +183,12 @@ uint32_t process_MJX()
 
 void initialize_mjx_txid()
 {
-    if (mjx_format == FORMAT_WLH08 ||
-        mjx_format == FORMAT_E010 ) {
+    if (mjx_format == FORMAT_E010) {
+         mjx_txid[0] = transmitterID[0] & 0xf8;
+         mjx_txid[1] = (transmitterID[1] & 0xf0) | 0x0c;
+         mjx_txid[2] = transmitterID[2] & 0xf0;
+    }
+    else if (mjx_format == FORMAT_WLH08) {
         // mjx_txid must be multiple of 8
         mjx_txid[0] = transmitterID[0] & 0xf8;
         mjx_txid[1] = transmitterID[1];
