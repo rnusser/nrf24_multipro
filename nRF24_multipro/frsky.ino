@@ -22,7 +22,8 @@ uint8_t frskySchedule = 0;
 static uint32_t telemetry_ahead = 100;
 
 float    telemetry_voltage      = 0.f;
-uint8_t  telemetry_rssi         = 0.f;
+uint8_t  telemetry_rx_rssi      = 0;
+uint8_t  telemetry_tx_rssi      = 0;
 uint8_t  telemetry_datamode     = 0;
 uint8_t  telemetry_dataitem     = 0;
 float    telemetry_data[3]      = {0};
@@ -89,10 +90,10 @@ void smartportSendFrame()
     buf[4] = 0;
     //frskySerial.sendData(0xF105,0);
     break;
-  case 1: // RSSI (fake value = 100)
+  case 1: // RX RSSI (fake value = 100)
     buf[2] = 0x01;
     buf[3] = 0xf1;
-    buf[4] = telemetry_rssi ? telemetry_rssi : 1;
+    buf[4] = telemetry_rx_rssi ? telemetry_rx_rssi : 1;
     //frskySerial.sendData(0xF101,100);
     break;
   case 2: //BATT  - rxBatt = ((uint8_t)data) * (3.3 / 255.0) * 4.0;
@@ -205,6 +206,7 @@ void smartportSendFrame()
     buf[2] = 0x16;
     buf[3] = 0x00;
     buf[4] = telemetry_flightmode;
+    buf[5] = telemetry_tx_rssi;
     break;
   case 12: // xjt t1
     buf[2] = 0x02;

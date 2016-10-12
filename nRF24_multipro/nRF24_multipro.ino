@@ -249,7 +249,10 @@ void loop()
   }
 
 #ifdef FRSKY_TELEMETRY
-  frskyUpdate();
+  if (PROTO_BAYANG == current_protocol)
+  {
+    frskyUpdate();
+  }
 #endif
 }
 

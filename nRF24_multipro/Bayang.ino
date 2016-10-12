@@ -26,7 +26,8 @@
 
 #ifndef FRSKY_TELEMETRY
 float   telemetry_voltage;
-uint8_t telemetry_rssi;
+uint8_t telemetry_rx_rssi;
+uint8_t telemetry_tx_rssi;
 uint8_t  telemetry_datamode;
 float    telemetry_data[3]; // pids
 uint8_t  telemetry_dataitem;
@@ -37,7 +38,8 @@ uint8_t  telemetry_flightmode;
 
 #ifdef TELEMETRY_ENABLED
 extern float    telemetry_voltage;
-extern uint8_t  telemetry_rssi;
+extern uint8_t  telemetry_rx_rssi;
+extern uint8_t  telemetry_tx_rssi;
 extern uint8_t  telemetry_datamode;
 extern float    telemetry_data[3]; // pids
 extern uint8_t  telemetry_dataitem;
@@ -45,8 +47,8 @@ extern uint16_t telemetry_uptime;
 extern uint16_t telemetry_flighttime;
 extern uint8_t  telemetry_flightmode;
 
-uint8_t telemetry_rssi_count;
-uint8_t telemetry_rssi_next;
+uint8_t telemetry_tx_rssi_count;
+uint8_t telemetry_tx_rssi_next;
 #endif
 
 static uint8_t Bayang_rf_chan;
@@ -200,12 +202,14 @@ uint8_t Bayang_recv_packet()
         v.bytes[1] = packet[2];
         telemetry_voltage = v.v / 100.f;
 
-        v.bytes[0] = packet[3];
-        v.bytes[1] = packet[4];
+        telemetry_rx_rssi = packet[3];
+
+        v.bytes[0] = packet[4];
+        v.bytes[1] = (packet[6] & 0x0F); // 12 bit # shared with flighttime
         telemetry_uptime = v.v;
 
         v.bytes[0] = packet[5];
-        v.bytes[1] = packet[6];
+        v.bytes[1] = (packet[6] >> 4);
         telemetry_flighttime = v.v;
 
         telemetry_flightmode = packet[7] & 0x3; // 0 = level, 1 = acro,
@@ -467,7 +471,7 @@ void Bayang_process()
       NRF24L01_FlushTx();
       NRF24L01_FlushRx();
 
-      telemetry_rssi_count++;
+      telemetry_tx_rssi_count++;
 
       Bayang_state = BAYANG_STATE_RECEIEVING;
     }
@@ -482,7 +486,7 @@ void Bayang_process()
     }
     else if (Bayang_recv_packet())
     {
-      telemetry_rssi_next++;
+      telemetry_tx_rssi_next++;
       // received telemetry packet
     }
     else
@@ -490,11 +494,11 @@ void Bayang_process()
       return;
     }
 
-    if (100 == telemetry_rssi_count)
+    if (100 == telemetry_tx_rssi_count)
     {
-      telemetry_rssi = telemetry_rssi_next;
-      telemetry_rssi_next = 0;
-      telemetry_rssi_count = 0;
+      telemetry_tx_rssi = telemetry_tx_rssi_next;
+      telemetry_tx_rssi_next = 0;
+      telemetry_tx_rssi_count = 0;
     }
 
     Bayang_state = BAYANG_STATE_IDLE;
