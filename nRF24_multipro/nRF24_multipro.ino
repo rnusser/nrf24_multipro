@@ -183,7 +183,7 @@ void loop()
   // reset / rebind
   if(reset || ppm[AUX8] > PPM_MAX_COMMAND) {
       reset = false;
-      //selectProtocol();
+      selectProtocol();
       NRF24L01_Reset();
       NRF24L01_Initialize();
       init_protocol();
