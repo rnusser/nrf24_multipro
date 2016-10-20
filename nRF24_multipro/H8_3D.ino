@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_H8_3D
 
 /*
  This program is free software: you can redistribute it and/or modify
@@ -142,3 +143,4 @@ void H8_3D_init()
     NRF24L01_WriteReg(NRF24L01_1D_FEATURE, 0x01);
     NRF24L01_Activate(0x73);
 }
+#endif

@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_YD717
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -247,3 +248,4 @@ void YD717_init()
     YD717_initialize();
     YD717_state = YD717_INIT1;
 }
+#endif

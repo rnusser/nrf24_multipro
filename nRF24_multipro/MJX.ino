@@ -1,3 +1,4 @@
+#if defined(ENABLE_PROTO_MJX) || defined(ENABLE_PROTO_E010)
 
 /*
  This program is free software: you can redistribute it and/or modify
@@ -266,3 +267,4 @@ void MJX_bind()
     mjx_init2();
     digitalWrite(ledPin, HIGH);
 }
+#endif

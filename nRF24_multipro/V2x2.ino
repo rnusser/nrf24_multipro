@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_V2X2
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -235,4 +236,5 @@ void V2x2_send_packet(uint8_t bind)
     NRF24L01_WritePayload(packet, V2x2_PAYLOADSIZE);
     delayMicroseconds(15);
 }
+#endif
 

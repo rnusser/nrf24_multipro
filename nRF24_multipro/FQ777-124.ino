@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_FQ777124
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -238,4 +239,5 @@ void FQ777124_send_packet(u8 bind)
     NRF24L01_WritePayload(FQ777124_dpl_packet, packet_len);
     NRF24L01_WritePayload(FQ777124_dpl_packet, packet_len);
 }
+#endif
 

@@ -87,6 +87,28 @@ enum chan_order{
 #define GET_FLAG(ch, mask) (ppm[ch] > PPM_MAX_COMMAND ? mask : 0)
 #define GET_FLAG_INV(ch, mask) (ppm[ch] < PPM_MIN_COMMAND ? mask : 0)
 
+#define RF_CHIP_NRF24L01
+//#define RF_CHIP_XN297
+
+
+#define ENABLE_PROTO_V2X2
+#define ENABLE_PROTO_CG023
+#define ENABLE_PROTO_CX10_BLUE
+#define ENABLE_PROTO_CX10_GREEN
+#define ENABLE_PROTO_H7
+#define ENABLE_PROTO_BAYANG
+#define ENABLE_PROTO_SYMAX5C1
+#define ENABLE_PROTO_YD829
+#define ENABLE_PROTO_H8_3D
+#define ENABLE_PROTO_MJX
+#define ENABLE_PROTO_SYMAXOLD
+#define ENABLE_PROTO_HISKY
+#define ENABLE_PROTO_KN
+#define ENABLE_PROTO_YD717
+#define ENABLE_PROTO_FQ777124
+#define ENABLE_PROTO_E010
+
+
 // supported protocols
 enum {
     PROTO_V2X2 = 0,     // WLToys V2x2, JXD JD38x, JD39x, JJRC H6C, Yizhan Tarantula X6 ...
@@ -160,46 +182,70 @@ void loop()
     }
     // process protocol
     switch(current_protocol) {
+#if defined(ENABLE_PROTO_CG023) || defined(ENABLE_PROTO_YD829)
         case PROTO_CG023:
         case PROTO_YD829:
             timeout = process_CG023();
             break;
+#endif
+#if defined(ENABLE_PROTO_V2X2)
         case PROTO_V2X2:
             timeout = process_V2x2();
             break;
+#endif
+#if defined(ENABLE_PROTO_CX10_GREEN) || defined(ENABLE_PROTO_CX10_BLUE)
         case PROTO_CX10_GREEN:
         case PROTO_CX10_BLUE:
             timeout = process_CX10();
             break;
+#endif
+#if defined(ENABLE_PROTO_H7)
         case PROTO_H7:
             timeout = process_H7();
             break;
+#endif
+#if defined(ENABLE_PROTO_BAYANG)
         case PROTO_BAYANG:
             timeout = process_Bayang();
             break;
+#endif
+#if defined(ENABLE_PROTO_SYMAX5C1) || defined(ENABLE_PROTO_SYMAXOLD)
         case PROTO_SYMAX5C1:
         case PROTO_SYMAXOLD:
             timeout = process_SymaX();
             break;
+#endif
+#if defined(ENABLE_PROTO_H8_3D)
         case PROTO_H8_3D:
             timeout = process_H8_3D();
             break;
+#endif
+#if defined(ENABLE_PROTO_MJX) || defined(ENABLE_PROTO_E010)
         case PROTO_MJX:
         case PROTO_E010:
             timeout = process_MJX();
             break;
+#endif
+#if defined(ENABLE_PROTO_HISKY)
         case PROTO_HISKY:
             timeout = process_HiSky();
             break;
+#endif
+#if defined(ENABLE_PROTO_KN)
         case PROTO_KN:
             timeout = process_KN();
             break;
+#endif
+#if defined(ENABLE_PROTO_YD717)
         case PROTO_YD717:
             timeout = process_YD717();
             break;
+#endif
+#if defined(ENABLE_PROTO_FQ777124)
         case PROTO_FQ777124:
             timeout = process_FQ777124();
             break;
+#endif
     }
     // updates ppm values out of ISR
     update_ppm();
@@ -320,54 +366,78 @@ void selectProtocol()
 void init_protocol()
 {
     switch(current_protocol) {
+#if defined(ENABLE_PROTO_CG023) || defined(ENABLE_PROTO_YD829)
         case PROTO_CG023:
         case PROTO_YD829:
             CG023_init();
             CG023_bind();
             break;
+#endif
+#if defined(ENABLE_PROTO_V2X2)
         case PROTO_V2X2:
             V2x2_init();
             V2x2_bind();
             break;
+#endif
+#if defined(ENABLE_PROTO_CX10_GREEN) || defined(ENABLE_PROTO_CX10_BLUE)
         case PROTO_CX10_GREEN:
         case PROTO_CX10_BLUE:
             CX10_init();
             CX10_bind();
             break;
+#endif
+#if defined(ENABLE_PROTO_H7)
         case PROTO_H7:
             H7_init();
             H7_bind();
             break;
+#endif
+#if defined(ENABLE_PROTO_BAYANG)
         case PROTO_BAYANG:
             Bayang_init();
             Bayang_bind();
             break;
+#endif
+#if defined(ENABLE_PROTO_SYMAX5C1) || defined(ENABLE_PROTO_SYMAXOLD)
         case PROTO_SYMAX5C1:
         case PROTO_SYMAXOLD:
             Symax_init();
             break;
+#endif
+#if defined(ENABLE_PROTO_H8_3D)
         case PROTO_H8_3D:
             H8_3D_init();
             H8_3D_bind();
             break;
+#endif
+#if defined(ENABLE_PROTO_MJX) || defined(ENABLE_PROTO_E010)
         case PROTO_MJX:
         case PROTO_E010:
             MJX_init();
             MJX_bind();
             break;
+#endif
+#if defined(ENABLE_PROTO_HISKY)
         case PROTO_HISKY:
             HiSky_init();
             break;
+#endif
+#if defined(ENABLE_PROTO_KN)
         case PROTO_KN:
             kn_start_tx(true); // autobind
             break;
+#endif
+#if defined(ENABLE_PROTO_YD717)
         case PROTO_YD717:
             YD717_init();
             break;
+#endif
+#if defined(ENABLE_PROTO_FQ777124)
         case PROTO_FQ777124:
             FQ777124_init();
             FQ777124_bind();
             break;
+#endif
     }
 }
 

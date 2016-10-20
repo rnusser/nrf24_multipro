@@ -1,3 +1,4 @@
+#if defined(ENABLE_PROTO_CX10_BLUE) || defined(ENABLE_PROTO_CX10_GREEN)
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -169,3 +170,4 @@ void CX10_Write_Packet(uint8_t init)
 
     XN297_WritePayload(packet, CX10_packet_length);
 }
+#endif

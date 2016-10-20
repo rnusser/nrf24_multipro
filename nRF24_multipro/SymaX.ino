@@ -1,3 +1,4 @@
+#if defined(ENABLE_PROTO_SYMAX5C1) || defined(ENABLE_PROTO_SYMAXOLD)
 
 /*
  This program is free software: you can redistribute it and/or modify
@@ -354,3 +355,4 @@ void Symax_init()
     SymaX_phase = SYMAX_INIT1;
     delayMicroseconds(500);
 }
+#endif

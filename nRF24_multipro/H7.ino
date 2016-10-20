@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_H7
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -166,3 +167,4 @@ uint32_t process_H7()
     H7_WritePacket();
     return result;
 }
+#endif

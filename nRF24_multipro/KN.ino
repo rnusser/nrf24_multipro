@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_KN
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -343,3 +344,4 @@ u16 kn_convert_channel(u8 num)
     return map(ppm[num], PPM_MIN, PPM_MAX, 0, 1023);
 }
 
+#endif

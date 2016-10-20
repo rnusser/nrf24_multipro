@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_BAYANG
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -140,3 +141,4 @@ void Bayang_send_packet(u8 bind)
     NRF24L01_FlushTx();
     XN297_WritePayload(packet, BAYANG_PACKET_SIZE);
 }
+#endif

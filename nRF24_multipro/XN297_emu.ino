@@ -13,6 +13,8 @@
  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef RF_CHIP_XN297
+
 static uint8_t xn297_addr_len;
 static uint8_t xn297_tx_addr[5];
 static uint8_t xn297_rx_addr[5];
@@ -140,3 +142,34 @@ uint8_t XN297_ReadPayload(uint8_t* msg, uint8_t len)
         msg[i] = bit_reverse(msg[i]) ^ bit_reverse(xn297_scramble[i+xn297_addr_len]);
     return res;
 }
+
+#else
+void XN297_SetTXAddr(const uint8_t* addr, uint8_t len)
+{
+  NRF24L01_WriteReg(NRF24L01_03_SETUP_AW, len-2);
+  NRF24L01_WriteRegisterMulti(NRF24L01_10_TX_ADDR, addr, len);
+}
+
+void XN297_SetRXAddr(const uint8_t* addr, uint8_t len)
+{
+    NRF24L01_WriteReg(NRF24L01_03_SETUP_AW, len-2);
+    NRF24L01_WriteRegisterMulti(NRF24L01_0A_RX_ADDR_P0, addr, len);
+}
+
+void XN297_Configure(uint8_t flags)
+{
+  NRF24L01_WriteReg(NRF24L01_00_CONFIG, flags);
+}
+
+uint8_t XN297_WritePayload(uint8_t* msg, uint8_t len)
+{
+  return NRF24L01_WritePayload(msg, len);
+}
+
+uint8_t XN297_ReadPayload(uint8_t* msg, uint8_t len)
+{
+  return NRF24L01_ReadPayload(msg, len);
+}
+
+#endif
+

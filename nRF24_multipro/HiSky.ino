@@ -1,3 +1,4 @@
+#ifdef ENABLE_PROTO_HISKY
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -206,3 +207,4 @@ void HiSky_build_ch_data()
         packet[i<4?8:9] |= (temp >> 2) & 0xc0;
     }
 }
+#endif

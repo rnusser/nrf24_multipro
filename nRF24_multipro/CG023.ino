@@ -1,3 +1,4 @@
+#if defined (ENABLE_PROTO_CG023) || defined (ENABLE_PROTO_YD829)
 /*
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -156,3 +157,4 @@ void CG023_WritePacket(uint8_t init)
     packet[14] = 0x00;
     XN297_WritePayload(packet, CG023_PAYLOAD_SIZE);
 }
+#endif
