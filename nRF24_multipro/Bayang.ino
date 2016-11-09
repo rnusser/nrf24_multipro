@@ -51,25 +51,43 @@ void Bayang_init()
     uint8_t i;
     const u8 bind_address[] = {0,0,0,0,0};
     for(i=0; i<BAYANG_ADDRESS_LENGTH; i++) {
-        Bayang_rx_tx_addr[i] = random() & 0xff;
+        Bayang_rx_tx_addr[i] = transmitterID[i%4] & 0xff;
     }
     Bayang_rf_channels[0] = 0x00;
     for(i=1; i<BAYANG_RF_NUM_CHANNELS; i++) {
-        Bayang_rf_channels[i] = random() % 0x42;
+        Bayang_rf_channels[i] = transmitterID[i%4] % 0x42;
     }
     NRF24L01_Initialize();
+
+#ifdef RF_CHIP_XN297
+    static uint8_t bbcal[6] = {0x4c , 0x84 , 0x6F , 0x9c , 0x20  };
+    NRF24L01_WriteRegisterMulti(0x3f ,  bbcal , sizeof(bbcal) );
+    // new values
+    static uint8_t rfcal[8] = {0xc9 , 0x9a , 0xA0 , 0x61 , 0xbb , 0xab , 0x9c  };
+    NRF24L01_WriteRegisterMulti(0x3e , rfcal , sizeof(rfcal) );
+    
+    static uint8_t demodcal[6] = {0x0b , 0xdf , 0xc4 , 0xa7 , 0x03};
+    NRF24L01_WriteRegisterMulti(0x39, demodcal , sizeof(demodcal) );
+#endif
+
     NRF24L01_SetTxRxMode(TX_EN);
     XN297_SetTXAddr(bind_address, BAYANG_ADDRESS_LENGTH);
+    XN297_SetRXAddr(bind_address, BAYANG_ADDRESS_LENGTH);
     NRF24L01_FlushTx();
     NRF24L01_FlushRx();
     NRF24L01_WriteReg(NRF24L01_01_EN_AA, 0x00);      // No Auto Acknowldgement on all data pipes
     NRF24L01_WriteReg(NRF24L01_02_EN_RXADDR, 0x01);
+    NRF24L01_WriteReg(NRF24L01_11_RX_PW_P0, BAYANG_PACKET_SIZE);
     NRF24L01_WriteReg(NRF24L01_03_SETUP_AW, 0x03);
     NRF24L01_WriteReg(NRF24L01_04_SETUP_RETR, 0x00); // no retransmits
     NRF24L01_SetBitrate(NRF24L01_BR_1M);             // 1Mbps
     NRF24L01_SetPower(RF_POWER);
     NRF24L01_Activate(0x73);                         // Activate feature register
+#ifdef RF_CHIP_XN297
+    NRF24L01_WriteReg(NRF24L01_1C_DYNPD, 0x01);      // enable dynamic payload length
+#else
     NRF24L01_WriteReg(NRF24L01_1C_DYNPD, 0x00);      // Disable dynamic payload length on all pipes
+#endif
     NRF24L01_WriteReg(NRF24L01_1D_FEATURE, 0x01);
     NRF24L01_Activate(0x73);
     delay(150);
@@ -84,6 +102,7 @@ void Bayang_bind()
         digitalWrite(ledPin, counter-- & 0x10);
     }
     XN297_SetTXAddr(Bayang_rx_tx_addr, BAYANG_ADDRESS_LENGTH);
+    XN297_SetRXAddr(Bayang_rx_tx_addr, BAYANG_ADDRESS_LENGTH);
     digitalWrite(ledPin, HIGH);
 }
 

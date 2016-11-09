@@ -32,7 +32,63 @@
 #include <EEPROM.h>
 #include "iface_nrf24l01.h"
 
+// if using an xn297, uncomment the following
+//#define RF_CHIP_XN297
 
+#ifdef RF_CHIP_XN297
+// currently only the bayang protocol
+// has been made to work with the xn297
+#define ENABLE_PROTO_BAYANG
+#else
+#define ENABLE_PROTO_V2X2
+#define ENABLE_PROTO_CG023
+#define ENABLE_PROTO_CX10_BLUE
+#define ENABLE_PROTO_CX10_GREEN
+#define ENABLE_PROTO_H7
+#define ENABLE_PROTO_BAYANG
+#define ENABLE_PROTO_SYMAX5C1
+#define ENABLE_PROTO_YD829
+#define ENABLE_PROTO_H8_3D
+#define ENABLE_PROTO_MJX
+#define ENABLE_PROTO_SYMAXOLD
+#define ENABLE_PROTO_HISKY
+#define ENABLE_PROTO_KN
+#define ENABLE_PROTO_YD717
+#define ENABLE_PROTO_FQ777124
+#define ENABLE_PROTO_E010
+#endif
+
+#ifdef __AVR_ATtiny85__
+// ############ ATTINY85 Wiring ################
+#define PPM_pin   3  // PPM in PB3 = 2nd pin
+#define PPM_port  PORTB
+//SPI Comm.pins with nRF24L01
+#define MOSI_pin  1  // MOSI   PB1 = 6th pin
+#define MOSI_port PORTB
+#define SCK_pin   2  // SCK    PB2 = 7th pin
+#define SCK_port  PORTB
+#define MISO_pin  0 // MISO    PB0 = 5th pin
+#define MISO_IPR  PINB
+#define CS_pin    4 // CS      PB4 = 3rd pin
+#define CS_port    PORTB
+//#define CE_pin  1  // Not Connected - wire CE to 3.3v with a resistor
+
+#define ledPin    5 // LED  - D13 - reset pin, not actually used
+
+
+// SPI outputs
+#define MOSI_on MOSI_port |= _BV(MOSI_pin)  // PD3
+#define MOSI_off MOSI_port &= ~_BV(MOSI_pin)// PD3
+#define SCK_on SCK_port |= _BV(SCK_pin)   // PD4
+#define SCK_off SCK_port &= ~_BV(SCK_pin) // PD4
+#define CE_on 
+#define CE_off  
+#define CS_on CS_port |= _BV(CS_pin)    // PC1
+#define CS_off CS_port &= ~_BV(CS_pin)  // PC1
+// SPI input
+#define  MISO_on (PINB & _BV(MISO_pin)) // PC0
+
+#else
 // ############ Wiring ################
 #define PPM_pin   2  // PPM in
 //SPI Comm.pins with nRF24L01
@@ -55,6 +111,7 @@
 #define CS_off PORTC &= ~_BV(1)  // PC1
 // SPI input
 #define  MISO_on (PINC & _BV(0)) // PC0
+#endif
 
 #define RF_POWER TX_POWER_80mW 
 
@@ -87,26 +144,6 @@ enum chan_order{
 #define GET_FLAG(ch, mask) (ppm[ch] > PPM_MAX_COMMAND ? mask : 0)
 #define GET_FLAG_INV(ch, mask) (ppm[ch] < PPM_MIN_COMMAND ? mask : 0)
 
-#define RF_CHIP_NRF24L01
-//#define RF_CHIP_XN297
-
-
-#define ENABLE_PROTO_V2X2
-#define ENABLE_PROTO_CG023
-#define ENABLE_PROTO_CX10_BLUE
-#define ENABLE_PROTO_CX10_GREEN
-#define ENABLE_PROTO_H7
-#define ENABLE_PROTO_BAYANG
-#define ENABLE_PROTO_SYMAX5C1
-#define ENABLE_PROTO_YD829
-#define ENABLE_PROTO_H8_3D
-#define ENABLE_PROTO_MJX
-#define ENABLE_PROTO_SYMAXOLD
-#define ENABLE_PROTO_HISKY
-#define ENABLE_PROTO_KN
-#define ENABLE_PROTO_YD717
-#define ENABLE_PROTO_FQ777124
-#define ENABLE_PROTO_E010
 
 
 // supported protocols
@@ -140,7 +177,7 @@ enum{
 };
 
 uint8_t transmitterID[4];
-uint8_t current_protocol;
+uint8_t current_protocol = PROTO_BAYANG;
 static volatile bool ppm_ok = false;
 uint8_t packet[32];
 static bool reset=true;
@@ -150,21 +187,32 @@ static uint16_t ppm[12] = {PPM_MIN,PPM_MIN,PPM_MIN,PPM_MIN,PPM_MID,PPM_MID,
 
 void setup()
 {
+#ifdef __AVR_ATtiny85__
+    randomSeed((analogRead(A0) & 0x1F) | (analogRead(A0) << 5));
+#else
     randomSeed((analogRead(A4) & 0x1F) | (analogRead(A5) << 5));
     pinMode(ledPin, OUTPUT);
+#endif
     digitalWrite(ledPin, LOW); //start LED off
     pinMode(PPM_pin, INPUT);
     pinMode(MOSI_pin, OUTPUT);
     pinMode(SCK_pin, OUTPUT);
     pinMode(CS_pin, OUTPUT);
+#ifndef __AVR_ATtiny85__
     pinMode(CE_pin, OUTPUT);
+#endif
     pinMode(MISO_pin, INPUT);
 
     // PPM ISR setup
+#ifdef __AVR_ATtiny85__
+    GIMSK |= _BV(PCIE); // enable pin change interrupt
+    PCMSK |= _BV(PCINT3); //use pb3 as interrupt pin
+#else
     attachInterrupt(digitalPinToInterrupt(PPM_pin), ISR_ppm, CHANGE);
     TCCR1A = 0;  //reset timer1
     TCCR1B = 0;
     TCCR1B |= (1 << CS11);  //set timer1 to increment every 1 us @ 8MHz, 0.5 us @16MHz
+#endif
 
     set_txid(false);
 }
@@ -459,8 +507,22 @@ void update_ppm()
 #endif
 }
 
+#ifdef __AVR_ATtiny85__
+ISR(PCINT0_vect)
+#else
 void ISR_ppm()
+#endif
 {
+    static unsigned int pulse;
+    static unsigned long counterPPM;
+    static byte chan;
+#ifdef __AVR_ATtiny85__
+  static uint32_t micros_last = 0;
+  uint32_t micros_now = micros();
+  #define PPM_SCALE 0L
+  counterPPM = micros_now - micros_last;
+  micros_last = micros_now;
+#else
     #if F_CPU == 16000000
         #define PPM_SCALE 1L
     #elif F_CPU == 8000000
@@ -468,11 +530,9 @@ void ISR_ppm()
     #else
         #error // 8 or 16MHz only !
     #endif
-    static unsigned int pulse;
-    static unsigned long counterPPM;
-    static byte chan;
     counterPPM = TCNT1;
     TCNT1 = 0;
+#endif
     ppm_ok=false;
     if(counterPPM < 510 << PPM_SCALE) {  //must be a pulse if less than 510us
         pulse = counterPPM;
