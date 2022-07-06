@@ -1,4 +1,4 @@
-/*
+/* RN
  ##########################################
  #####   MultiProtocol nRF24L01 Tx   ######
  ##########################################
@@ -29,8 +29,17 @@
  */
 
 #include <util/atomic.h>
-#include <EEPROM.h>
 #include "iface_nrf24l01.h"
+#include <EEPROM.h>
+#include <SoftwareSerial.h>
+#include <Servo.h>
+
+#define RX 2
+#define TX 5
+
+SoftwareSerial Serial(RX, TX);
+
+Servo servo;
 
 // uncomment the below define to use nRF24_multipro as a receiver
 // instead of a transmitter. you must also explicity set the
@@ -38,40 +47,49 @@
 // the receiver to use.
 // Currently only the following RX protocols have been implemented:
 // PROTO_BAYANG
-//#define RX_MODE
-
-// uncomment the below define to enable a nrf 'pseudo promiscuous' mode
-// this has a serial interface for configuring, sending, and receiving
-// packets. useful for reverse engineering protocols.
-// (helped reverse engineer the fq777-124 pocket drone protocol which
-// uses an ssv7241 transceiver (nrf clone)
-
-#ifdef ENABLE_PROMISC
 #define RX_MODE
-#endif
 
 // ############ Wiring ################
-#define PPM_pin   2  // PPM in
-//SPI Comm.pins with nRF24L01
-#define MOSI_pin  3  // MOSI - D3
-#define SCK_pin   4  // SCK  - D4
-#define CE_pin    5  // CE   - D5
-#define MISO_pin  A0 // MISO - A0
-#define CS_pin    A1 // CS   - A1
+#define PPM_pin   1  // PPM in
 
-#define ledPin    13 // LED  - D13
+//SPI Comm.pins with nRF24L01
+#define MOSI_pin  6  // MOSI - D6
+#define SCK_pin   4  // SCK  - D4
+#define CE_pin    3  // CE   - D3
+#define MISO_pin  5  // MISO - D5
+#define CS_pin    2  // CS   - D2
+
+//#define ledPin    0  // LED  - D0
+
+/* AtTiny44
+pin port Arduino 
+----------------
+2  PB0 10
+3  PB1  9
+4  PB3 11
+5  PB2  8
+6  PA7  7
+7  PA6  6
+
+13 PA0  0
+12 PA1  1
+11 PA2  2
+10 PA3  3
+9  BA4  4
+8  PA5  5
+*/
 
 // SPI outputs
-#define MOSI_on PORTD |= _BV(3)  // PD3
-#define MOSI_off PORTD &= ~_BV(3)// PD3
-#define SCK_on PORTD |= _BV(4)   // PD4
-#define SCK_off PORTD &= ~_BV(4) // PD4
-#define CE_on PORTD |= _BV(5)    // PD5
-#define CE_off PORTD &= ~_BV(5)  // PD5
-#define CS_on PORTC |= _BV(1)    // PC1
-#define CS_off PORTC &= ~_BV(1)  // PC1
+#define MOSI_on PORTA |= _BV(6)  // PD3 x = x | y (PORTA = PORTA | B011
+#define MOSI_off PORTA &= ~_BV(6)// PD3
+#define SCK_on PORTA |= _BV(4)   // PD4
+#define SCK_off PORTA &= ~_BV(4) // PD4
+#define CE_on PORTA |= _BV(3)    // PD5
+#define CE_off PORTA &= ~_BV(3)  // PD5
+#define CS_on PORTA |= _BV(2)    // PC1
+#define CS_off PORTA &= ~_BV(2)  // PC1
 // SPI input
-#define  MISO_on (PINC & _BV(0)) // PC0
+#define  MISO_on (PINA & _BV(0)) // PC0
 
 #define RF_POWER TX_POWER_80mW
 
@@ -117,7 +135,6 @@ enum {
     PROTO_HISKY,        // HiSky RXs, HFP80, HCP80/100, FBL70/80/90/100, FF120, HMX120, WLToys v933/944/955 ...
     PROTO_KN,           // KN (WLToys variant) V930/931/939/966/977/988
     PROTO_YD717,        // Cheerson CX-10 red (older version)/CX11/CX205/CX30, JXD389/390/391/393, SH6057/6043/6044/6046/6047, FY326Q7, WLToys v252 Pro/v343, XinXun X28/X30/X33/X39/X40
-    PROTO_PROMISC,      // to sniff packets and help reverse engineer protocols
     PROTO_END
 };
 
@@ -131,11 +148,7 @@ enum{
 };
 
 uint8_t transmitterID[4];
-#ifdef ENABLE_PROMISC
-uint8_t current_protocol = PROTO_PROMISC;
-#else
 uint8_t current_protocol = PROTO_BAYANG;
-#endif
 static volatile bool ppm_ok = false;
 uint8_t packet[32];
 static bool reset=true;
@@ -163,11 +176,12 @@ void setup()
     TCCR1B |= (1 << CS11);  //set timer1 to increment every 1 us @ 8MHz, 0.5 us @16MHz
 
 #endif
-#ifdef ENABLE_PROMISC
-    Serial.begin(57600);
-    Serial.println("starting radio");
-#endif //ENABLE_PROMISC
     set_txid(false);
+
+    Serial.begin( 9600 );
+    Serial.println( "Start" );
+    servo.attach( 2 );
+    pinMode( 6, OUTPUT );
 }
 
 void loop()
@@ -189,46 +203,8 @@ void loop()
     }
     // process protocol
     switch(current_protocol) {
-        case PROTO_CG023:
-        case PROTO_YD829:
-            timeout = process_CG023();
-            break;
-        case PROTO_V2X2:
-            timeout = process_V2x2();
-            break;
-        case PROTO_CX10_GREEN:
-        case PROTO_CX10_BLUE:
-            timeout = process_CX10();
-            break;
-        case PROTO_H7:
-            timeout = process_H7();
-            break;
         case PROTO_BAYANG:
             timeout = process_Bayang();
-            break;
-        case PROTO_PROMISC:
-        #ifdef ENABLE_PROMISC
-            timeout = process_Promisc();
-        #endif
-            break;
-        case PROTO_SYMAX5C1:
-        case PROTO_SYMAXOLD:
-            timeout = process_SymaX();
-            break;
-        case PROTO_H8_3D:
-            timeout = process_H8_3D();
-            break;
-        case PROTO_MJX:
-            timeout = process_MJX();
-            break;
-        case PROTO_HISKY:
-            timeout = process_HiSky();
-            break;
-        case PROTO_KN:
-            timeout = process_KN();
-            break;
-        case PROTO_YD717:
-            timeout = process_YD717();
             break;
     }
 #ifndef RX_MODE
@@ -271,64 +247,6 @@ void selectProtocol()
     if(ppm[RUDDER] < PPM_MIN_COMMAND)        // Rudder left
         set_txid(true);                      // Renew Transmitter ID
 
-    // protocol selection
-
-    // Rudder right + Aileron left + Elevator up
-    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND && ppm[ELEVATOR] > PPM_MAX_COMMAND)
-        current_protocol = PROTO_YD717; // Cheerson CX-10 red (older version)/CX11/CX205/CX30, JXD389/390/391/393, SH6057/6043/6044/6046/6047, FY326Q7, WLToys v252 Pro/v343, XinXun X28/X30/X33/X39/X40
-
-    // Rudder right + Aileron left + Elevator down
-    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND && ppm[ELEVATOR] < PPM_MIN_COMMAND)
-        current_protocol = PROTO_KN; // KN (WLToys variant) V930/931/939/966/977/988
-
-    // Rudder right + Elevator down
-    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[ELEVATOR] < PPM_MIN_COMMAND)
-        current_protocol = PROTO_HISKY; // HiSky RXs, HFP80, HCP80/100, FBL70/80/90/100, FF120, HMX120, WLToys v933/944/955 ...
-
-    // Rudder right + Elevator up
-    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[ELEVATOR] > PPM_MAX_COMMAND)
-        current_protocol = PROTO_SYMAXOLD; // Syma X5C, X2 ...
-
-    // Rudder right + Aileron right
-    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND)
-        current_protocol = PROTO_MJX; // MJX X600, other sub protocols can be set in code
-
-    // Rudder right + Aileron left
-    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND)
-        current_protocol = PROTO_H8_3D; // H8 mini 3D, H20 ...
-
-    // Elevator down + Aileron right
-    else if(ppm[ELEVATOR] < PPM_MIN_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND)
-        current_protocol = PROTO_YD829; // YD-829, YD-829C, YD-822 ...
-
-    // Elevator down + Aileron left
-    else if(ppm[ELEVATOR] < PPM_MIN_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND)
-        current_protocol = PROTO_SYMAX5C1; // Syma X5C-1, X11, X11C, X12
-
-    // Elevator up + Aileron right
-    else if(ppm[ELEVATOR] > PPM_MAX_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND)
-        current_protocol = PROTO_BAYANG;    // EAchine H8(C) mini, BayangToys X6/X7/X9, JJRC JJ850 ...
-
-    // Elevator up + Aileron left
-    else if(ppm[ELEVATOR] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND)
-        current_protocol = PROTO_H7;        // EAchine H7, MT99xx
-
-    // Elevator up
-    else if(ppm[ELEVATOR] > PPM_MAX_COMMAND)
-        current_protocol = PROTO_V2X2;       // WLToys V202/252/272, JXD 385/388, JJRC H6C ...
-
-    // Elevator down
-    else if(ppm[ELEVATOR] < PPM_MIN_COMMAND)
-        current_protocol = PROTO_CG023;      // EAchine CG023/CG031/3D X4, (todo :ATTOP YD-836/YD-836C) ...
-
-    // Aileron right
-    else if(ppm[AILERON] > PPM_MAX_COMMAND)
-        current_protocol = PROTO_CX10_BLUE;  // Cheerson CX10(blue pcb, newer red pcb)/CX10-A/CX11/CX12 ...
-
-    // Aileron left
-    else if(ppm[AILERON] < PPM_MIN_COMMAND)
-        current_protocol = PROTO_CX10_GREEN;  // Cheerson CX10(green pcb)...
-
     // read last used protocol from eeprom
     else
         current_protocol = constrain(EEPROM.read(ee_PROTOCOL_ID),0,PROTO_END-1);
@@ -343,57 +261,8 @@ void selectProtocol()
 
 void init_protocol()
 {
-    switch(current_protocol) {
-        case PROTO_CG023:
-        case PROTO_YD829:
-            CG023_init();
-            CG023_bind();
-            break;
-        case PROTO_V2X2:
-            V2x2_init();
-            V2x2_bind();
-            break;
-        case PROTO_CX10_GREEN:
-        case PROTO_CX10_BLUE:
-            CX10_init();
-            CX10_bind();
-            break;
-        case PROTO_H7:
-            H7_init();
-            H7_bind();
-            break;
-        case PROTO_BAYANG:
-            Bayang_init();
-            Bayang_bind();
-            break;
-        case PROTO_PROMISC:
-        #ifdef ENABLE_PROMISC
-            Promisc_init();
-            Promisc_bind();
-        #endif
-            break;
-        case PROTO_SYMAX5C1:
-        case PROTO_SYMAXOLD:
-            Symax_init();
-            break;
-        case PROTO_H8_3D:
-            H8_3D_init();
-            H8_3D_bind();
-            break;
-        case PROTO_MJX:
-            MJX_init();
-            MJX_bind();
-            break;
-        case PROTO_HISKY:
-            HiSky_init();
-            break;
-        case PROTO_KN:
-            kn_start_tx(true); // autobind
-            break;
-        case PROTO_YD717:
-            YD717_init();
-            break;
-    }
+    Bayang_init();
+    Bayang_bind();
 }
 
 // update ppm values out of ISR

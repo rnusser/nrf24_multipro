@@ -40,11 +40,11 @@ enum{
 
 uint32_t process_Bayang()
 {
-#ifndef RX_MODE
     uint32_t timeout = micros() + BAYANG_PACKET_PERIOD;
+#ifndef RX_MODE
     Bayang_send_packet(0);
 #else
-    uint32_t timeout = micros() + BAYANG_PACKET_PERIOD/10;
+    // timeout = micros() + BAYANG_PACKET_PERIOD/10;
     Bayang_recv_packet();
 #endif
     return timeout;
@@ -164,14 +164,17 @@ void Bayang_bind_rx()
     NRF24L01_WriteReg(NRF24L01_05_RF_CH, Bayang_rf_channels[Bayang_rf_chan++]);
     NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
     NRF24L01_FlushRx();
-
     digitalWrite(ledPin, HIGH);
 }
 
 #define DYNTRIM(chval) ((u8)((chval >> 2) & 0xfc))
 void Bayang_recv_packet()
 {
+  static bool is_bound = false;
+  static uint16_t failsafe_counter = 0;
   if(NRF24L01_ReadReg(NRF24L01_07_STATUS) & _BV(NRF24L01_07_RX_DR)) { // data received from tx
+    is_bound = true;
+    failsafe_counter = 0;
 
     int sum = 0;
     uint16_t roll, pitch, yaw, throttle;
@@ -180,6 +183,7 @@ void Bayang_recv_packet()
     if( packet[0] == 0xA4)
     {
       // bind packet
+      Serial.println("bind packet");
     }
     else if (packet[0] == 0xA5)
     {
@@ -195,16 +199,45 @@ void Bayang_recv_packet()
         pitch = (packet[6] & 0x0003) * 256 + packet[7];
         yaw = (packet[10] & 0x0003) * 256 + packet[11];
         throttle = (packet[8] & 0x0003) * 256 + packet[9];
+
+        // Serial.print(roll, DEC); Serial.print(",");
+        // Serial.print(pitch, DEC); Serial.print(",");
+        // Serial.print(yaw, DEC); Serial.print(",");
+        // Serial.print(throttle, DEC); Serial.println("");
+
+        // roll: 0 .. 1023; servo 0 .. 180 but stop at +-80� due to reduced holding current
+        servo.write( - asin( roll / 511.5 - 1.0 ) / ( 3.1416 / 2 ) * 80.0 + 90 );
+        // throttle: 0 .. 1023; pwm 0 .. 255
+        analogWrite( 6, throttle / 4  );
       }
       else
       {
         //checksum FAIL
+        Serial.println("checksum FAIL");
       }
+      NRF24L01_WriteReg(NRF24L01_05_RF_CH, Bayang_rf_channels[Bayang_rf_chan++]);
+      Bayang_rf_chan %= sizeof(Bayang_rf_channels);
+      NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
+      NRF24L01_FlushRx();
     }
-    NRF24L01_WriteReg(NRF24L01_05_RF_CH, Bayang_rf_channels[Bayang_rf_chan++]);
-    Bayang_rf_chan %= sizeof(Bayang_rf_channels);
-    NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
-    NRF24L01_FlushRx();
+    else
+    {
+        Serial.print("Unrecognized packet: ");
+        Serial.println(packet[0], HEX);
+    }
+  } else if ( is_bound ) {
+        ++failsafe_counter;
+        if ( failsafe_counter > 1000 ) {
+            is_bound = false;
+            failsafe_counter = 0;
+            // neutral steering position; motor off:
+            servo.write( 90 );
+            analogWrite( 6, 0 );
+            // enable rebinding:
+            extern bool reset;
+            reset = true;
+            Serial.println("reset");
+        }
   }
 }
 
