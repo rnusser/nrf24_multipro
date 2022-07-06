@@ -89,7 +89,7 @@ void Bayang_init()
     NRF24L01_WriteReg(NRF24L01_1D_FEATURE, 0x01);
     NRF24L01_Activate(0x73);
     delay(150);
-    
+
 #ifdef RX_MODE
     XN297_Configure(_BV(NRF24L01_00_EN_CRC) | _BV(NRF24L01_00_CRCO) | _BV(NRF24L01_00_PWR_UP) | _BV(NRF24L01_00_PRIM_RX));
     NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
@@ -117,7 +117,7 @@ void Bayang_bind_rx()
 {
     int bind_count = 0;
     uint8_t bind_packet[BAYANG_PACKET_SIZE] = {0};
-    
+
     uint32_t timeout;
 
     digitalWrite(ledPin, LOW);
@@ -125,16 +125,16 @@ void Bayang_bind_rx()
     NRF24L01_WriteReg(NRF24L01_05_RF_CH, BAYANG_RF_BIND_CHANNEL);
 
     while(bind_count < 10) {
-        timeout = millis()+5;        
+        timeout = millis()+5;
 
         while(millis()<timeout) {
             delay(1);
             if(NRF24L01_ReadReg(NRF24L01_07_STATUS) & _BV(NRF24L01_07_RX_DR)) { // data received from tx
                 XN297_ReadPayload(packet, BAYANG_PACKET_SIZE);
-                
+
                 NRF24L01_WriteReg(NRF24L01_07_STATUS, 0x70);
                 NRF24L01_FlushRx();
-                
+
                 if( packet[0] == 0xA4)
                 {
                   if (0 == bind_count)
@@ -152,7 +152,7 @@ void Bayang_bind_rx()
             }
         }
     }
-    
+
     memcpy(Bayang_rx_tx_addr, &packet[1], 5);
     memcpy(Bayang_rf_channels, &packet[6], 4);
     transmitterID[0] = packet[10];
@@ -184,10 +184,10 @@ void Bayang_recv_packet()
     else if (packet[0] == 0xA5)
     {
       // data packet
-      for(int i=0; i<14; i++) 
+      for(int i=0; i<14; i++)
       {
         sum += packet[i];
-      }	
+      }
       if ( (sum&0xFF) == packet[14] )
       {
         // checksum OK
@@ -252,7 +252,7 @@ void Bayang_send_packet(u8 bind)
     for(uint8_t i=0; i<BAYANG_PACKET_SIZE-1; i++) {
         packet[14] += packet[i];
     }
-    
+
     XN297_Configure(_BV(NRF24L01_00_EN_CRC) | _BV(NRF24L01_00_CRCO) | _BV(NRF24L01_00_PWR_UP));
     NRF24L01_WriteReg(NRF24L01_05_RF_CH, bind ? BAYANG_RF_BIND_CHANNEL : Bayang_rf_channels[Bayang_rf_chan++]);
     Bayang_rf_chan %= sizeof(Bayang_rf_channels);
