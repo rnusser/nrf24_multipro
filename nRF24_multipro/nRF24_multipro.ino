@@ -39,6 +39,7 @@
 
 SoftwareSerial Serial(RX, TX);
 
+#include <Servo.h>
 Servo servo;
 
 // uncomment the below define to use nRF24_multipro as a receiver
@@ -90,6 +91,7 @@ pin port Arduino
 #define CS_off PORTA &= ~_BV(2)  // PC1
 // SPI input
 #define  MISO_on (PINA & _BV(0)) // PC0
+//#define  MISO_on (PINC & _BV(0)) // PC0
 
 #define RF_POWER TX_POWER_80mW
 
@@ -206,6 +208,27 @@ void loop()
         case PROTO_BAYANG:
             timeout = process_Bayang();
             break;
+            
+    // Might not want all these        
+        case PROTO_SYMAX5C1:
+        case PROTO_SYMAXOLD:
+            timeout = process_SymaX();
+            break;
+        case PROTO_H8_3D:
+            timeout = process_H8_3D();
+            break;
+        case PROTO_MJX:
+            timeout = process_MJX();
+            break;
+        case PROTO_HISKY:
+            timeout = process_HiSky();
+            break;
+        case PROTO_KN:
+            timeout = process_KN();
+            break;
+        case PROTO_YD717:
+            timeout = process_YD717();
+            break;
     }
 #ifndef RX_MODE
     // updates ppm values out of ISR
@@ -247,6 +270,64 @@ void selectProtocol()
     if(ppm[RUDDER] < PPM_MIN_COMMAND)        // Rudder left
         set_txid(true);                      // Renew Transmitter ID
 
+    // protocol selection
+
+    // Rudder right + Aileron left + Elevator up
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND && ppm[ELEVATOR] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_YD717; // Cheerson CX-10 red (older version)/CX11/CX205/CX30, JXD389/390/391/393, SH6057/6043/6044/6046/6047, FY326Q7, WLToys v252 Pro/v343, XinXun X28/X30/X33/X39/X40
+
+    // Rudder right + Aileron left + Elevator down
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND && ppm[ELEVATOR] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_KN; // KN (WLToys variant) V930/931/939/966/977/988
+
+    // Rudder right + Elevator down
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[ELEVATOR] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_HISKY; // HiSky RXs, HFP80, HCP80/100, FBL70/80/90/100, FF120, HMX120, WLToys v933/944/955 ...
+
+    // Rudder right + Elevator up
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[ELEVATOR] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_SYMAXOLD; // Syma X5C, X2 ...
+
+    // Rudder right + Aileron right
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_MJX; // MJX X600, other sub protocols can be set in code
+
+    // Rudder right + Aileron left
+    else if(ppm[RUDDER] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_H8_3D; // H8 mini 3D, H20 ...
+
+    // Elevator down + Aileron right
+    else if(ppm[ELEVATOR] < PPM_MIN_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_YD829; // YD-829, YD-829C, YD-822 ...
+
+    // Elevator down + Aileron left
+    else if(ppm[ELEVATOR] < PPM_MIN_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_SYMAX5C1; // Syma X5C-1, X11, X11C, X12
+
+    // Elevator up + Aileron right
+    else if(ppm[ELEVATOR] > PPM_MAX_COMMAND && ppm[AILERON] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_BAYANG;    // EAchine H8(C) mini, BayangToys X6/X7/X9, JJRC JJ850 ...
+
+    // Elevator up + Aileron left
+    else if(ppm[ELEVATOR] > PPM_MAX_COMMAND && ppm[AILERON] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_H7;        // EAchine H7, MT99xx
+
+    // Elevator up
+    else if(ppm[ELEVATOR] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_V2X2;       // WLToys V202/252/272, JXD 385/388, JJRC H6C ...
+
+    // Elevator down
+    else if(ppm[ELEVATOR] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_CG023;      // EAchine CG023/CG031/3D X4, (todo :ATTOP YD-836/YD-836C) ...
+
+    // Aileron right
+    else if(ppm[AILERON] > PPM_MAX_COMMAND)
+        current_protocol = PROTO_CX10_BLUE;  // Cheerson CX10(blue pcb, newer red pcb)/CX10-A/CX11/CX12 ...
+
+    // Aileron left
+    else if(ppm[AILERON] < PPM_MIN_COMMAND)
+        current_protocol = PROTO_CX10_GREEN;  // Cheerson CX10(green pcb)...
+
     // read last used protocol from eeprom
     else
         current_protocol = constrain(EEPROM.read(ee_PROTOCOL_ID),0,PROTO_END-1);
@@ -261,8 +342,51 @@ void selectProtocol()
 
 void init_protocol()
 {
-    Bayang_init();
-    Bayang_bind();
+    switch(current_protocol) {
+        case PROTO_CG023:
+        case PROTO_YD829:
+            CG023_init();
+            CG023_bind();
+            break;
+        case PROTO_V2X2:
+            V2x2_init();
+            V2x2_bind();
+            break;
+        case PROTO_CX10_GREEN:
+        case PROTO_CX10_BLUE:
+            CX10_init();
+            CX10_bind();
+            break;
+        case PROTO_H7:
+            H7_init();
+            H7_bind();
+            break;
+        case PROTO_BAYANG:
+            Bayang_init();
+            Bayang_bind();
+            break;
+        case PROTO_SYMAX5C1:
+        case PROTO_SYMAXOLD:
+            Symax_init();
+            break;
+        case PROTO_H8_3D:
+            H8_3D_init();
+            H8_3D_bind();
+            break;
+        case PROTO_MJX:
+            MJX_init();
+            MJX_bind();
+            break;
+        case PROTO_HISKY:
+            HiSky_init();
+            break;
+        case PROTO_KN:
+            kn_start_tx(true); // autobind
+            break;
+        case PROTO_YD717:
+            YD717_init();
+            break;
+    }
 }
 
 // update ppm values out of ISR
